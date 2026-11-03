@@ -12,6 +12,41 @@
         <maven.compiler.source>21</maven.compiler.source>
         <maven.compiler.target>21</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <!-- Ruta al jpl.jar que trae SWI-Prolog. Se cambia sola segun el
+             sistema operativo (ver los perfiles de abajo). Si lo instalaste
+             en otro lado, cambia esta ruta. -->
+        <jpl.jar>C:/Program Files/swipl/lib/jpl.jar</jpl.jar>
     </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.jpl7</groupId>
+            <artifactId>jpl</artifactId>
+            <version>7</version>
+            <scope>system</scope>
+            <systemPath>${jpl.jar}</systemPath>
+        </dependency>
+    </dependencies>
+
+    <profiles>
+        <profile>
+            <id>mac</id>
+            <activation>
+                <os><family>mac</family></os>
+            </activation>
+            <properties>
+                <jpl.jar>/Applications/SWI-Prolog.app/Contents/swipl/lib/jpl.jar</jpl.jar>
+            </properties>
+        </profile>
+        <profile>
+            <id>linux</id>
+            <activation>
+                <os><family>unix</family><name>Linux</name></os>
+            </activation>
+            <properties>
+                <jpl.jar>/usr/lib/swipl/lib/jpl.jar</jpl.jar>
+            </properties>
+        </profile>
+    </profiles>
 
 </project>

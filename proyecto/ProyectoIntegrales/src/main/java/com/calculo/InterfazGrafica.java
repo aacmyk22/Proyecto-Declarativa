@@ -11,6 +11,8 @@ import java.awt.event.MouseEvent;
 import java.awt.geom.RoundRectangle2D;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class InterfazGrafica extends JFrame {
 
@@ -29,22 +31,29 @@ public class InterfazGrafica extends JFrame {
     private static final Color CHIP_HOVER     = new Color(224, 231, 255);
     private static final Color RESULTADO_BG   = new Color(248, 250, 252);
     private static final Color EXITO          = new Color(5, 150, 105);
+    private static final Color ROJO           = new Color(225, 29, 72);
 
     // ====== Fuentes (con alternativas según el sistema operativo) ======
     private static final String FUENTE      = elegirFuente("SF Pro Text", "Helvetica Neue", "Segoe UI", "Inter", "SansSerif");
     private static final String FUENTE_MONO = elegirFuente("JetBrains Mono", "Menlo", "Consolas", "Monospaced");
 
+    private static final String[] EJEMPLOS = {
+            "x^2", "3*x^2 + 2*x", "sin(2*x)", "cos(x)",
+            "exp(x)", "1/x", "sqrt(x)", "x^3 - 4*x"
+    };
+
     private final MotorProlog motorProlog;
     private CampoTexto inputExpresion, inputLimInf, inputLimSup;
-    private JTextArea textoIntegral;
-    private JLabel labelResultadoArea;
+    private JTextArea textoIntegral, textoPasos;
+    private JLabel labelAreaExacta, labelAreaReal;
+    private PanelGrafica grafica;
 
     public InterfazGrafica() {
         motorProlog = new MotorProlog();
 
         setTitle("Sistema Experto de Integrales");
-        setSize(620, 760);
-        setMinimumSize(new Dimension(560, 720));
+        setSize(1180, 780);
+        setMinimumSize(new Dimension(1000, 720));
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
         getContentPane().setBackground(FONDO);
@@ -52,6 +61,12 @@ public class InterfazGrafica extends JFrame {
 
         add(crearEncabezado(), BorderLayout.NORTH);
         add(crearContenido(), BorderLayout.CENTER);
+
+        if (!motorProlog.estaCargado()) {
+            SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(this,
+                    "No se pudo cargar integrales.pl. Revisa que el archivo exista.",
+                    "Prolog", JOptionPane.WARNING_MESSAGE));
+        }
     }
 
     // ================== CONSTRUCCIÓN DE LA INTERFAZ ==================
@@ -67,13 +82,13 @@ public class InterfazGrafica extends JFrame {
             }
         };
         header.setOpaque(false);
-        header.setBorder(new EmptyBorder(26, 30, 26, 30));
+        header.setBorder(new EmptyBorder(22, 30, 22, 30));
 
         JLabel titulo = new JLabel("∫  Calculadora de Integrales");
         titulo.setForeground(Color.WHITE);
         titulo.setFont(new Font(FUENTE, Font.BOLD, 26));
 
-        JLabel subtitulo = new JLabel("Calcula la integral y el área bajo la curva de una función");
+        JLabel subtitulo = new JLabel("Integra, explica cada paso y grafica el área bajo la curva");
         subtitulo.setForeground(new Color(255, 255, 255, 200));
         subtitulo.setFont(new Font(FUENTE, Font.PLAIN, 13));
 
@@ -86,37 +101,51 @@ public class InterfazGrafica extends JFrame {
         textos.add(Box.createVerticalStrut(6));
         textos.add(subtitulo);
 
+        JLabel etiqueta = new JLabel("Sistema experto · Java + SWI-Prolog");
+        etiqueta.setForeground(Color.WHITE);
+        etiqueta.setFont(new Font(FUENTE, Font.BOLD, 12));
+
         header.add(textos, BorderLayout.CENTER);
+        header.add(etiqueta, BorderLayout.EAST);
         return header;
     }
 
     private JPanel crearContenido() {
-        JPanel contenedor = new JPanel(new BorderLayout());
+        JPanel contenedor = new JPanel(new BorderLayout(20, 0));
         contenedor.setBackground(FONDO);
-        contenedor.setBorder(new EmptyBorder(24, 28, 24, 28));
+        contenedor.setBorder(new EmptyBorder(20, 24, 20, 24));
 
+        contenedor.add(crearTarjetaDatos(), BorderLayout.WEST);
+        contenedor.add(crearColumnaDerecha(), BorderLayout.CENTER);
+        return contenedor;
+    }
+
+    // Columna izquierda: datos de entrada y resultados
+    private JPanel crearTarjetaDatos() {
         PanelRedondeado tarjeta = new PanelRedondeado(20, TARJETA, BORDE);
         tarjeta.setLayout(new BoxLayout(tarjeta, BoxLayout.Y_AXIS));
-        tarjeta.setBorder(new EmptyBorder(26, 28, 26, 28));
+        tarjeta.setBorder(new EmptyBorder(22, 24, 22, 24));
+        tarjeta.setPreferredSize(new Dimension(420, 100));
 
         // --- Expresión ---
-        inputExpresion = new CampoTexto("Ej. x^2, 5*x, sin(x)");
-        tarjeta.add(crearCampo("Expresión de la función", inputExpresion));
+        inputExpresion = new CampoTexto("Ej. x^2, 3*x + 1, sin(x)");
+        tarjeta.add(crearCampo("Función f(x)", inputExpresion));
         tarjeta.add(Box.createVerticalStrut(10));
         tarjeta.add(crearEjemplos());
-        tarjeta.add(Box.createVerticalStrut(18));
+        tarjeta.add(Box.createVerticalStrut(16));
 
         // --- Límites ---
         inputLimInf = new CampoTexto("0");
         inputLimSup = new CampoTexto("1");
-        JPanel limites = new JPanel(new GridLayout(1, 2, 16, 0));
+        JPanel limites = new JPanel(new GridLayout(1, 2, 14, 0));
         limites.setOpaque(false);
         limites.add(crearCampo("Límite inferior (a)", inputLimInf));
         limites.add(crearCampo("Límite superior (b)", inputLimSup));
+        limites.setToolTipText("Puedes escribir números o cosas como pi, pi/2, 2*e");
         limites.setAlignmentX(Component.LEFT_ALIGNMENT);
         limites.setMaximumSize(new Dimension(Integer.MAX_VALUE, 80));
         tarjeta.add(limites);
-        tarjeta.add(Box.createVerticalStrut(22));
+        tarjeta.add(Box.createVerticalStrut(18));
 
         // --- Botones ---
         BotonRedondeado btnCalcular = new BotonRedondeado("Calcular área", PRIMARIO, PRIMARIO_HOVER, Color.WHITE, 12);
@@ -134,7 +163,7 @@ public class InterfazGrafica extends JFrame {
         botones.setAlignmentX(Component.LEFT_ALIGNMENT);
         botones.setMaximumSize(new Dimension(Integer.MAX_VALUE, 46));
         tarjeta.add(botones);
-        tarjeta.add(Box.createVerticalStrut(24));
+        tarjeta.add(Box.createVerticalStrut(20));
 
         // --- Resultados ---
         textoIntegral = new JTextArea("—");
@@ -144,17 +173,17 @@ public class InterfazGrafica extends JFrame {
         textoIntegral.setWrapStyleWord(true);
         textoIntegral.setBorder(null);
         textoIntegral.setForeground(TEXTO);
-        textoIntegral.setFont(new Font(FUENTE_MONO, Font.BOLD, 16));
+        textoIntegral.setFont(new Font(FUENTE, Font.BOLD, 16));
 
-        labelResultadoArea = new JLabel("—");
-        labelResultadoArea.setFont(new Font(FUENTE, Font.BOLD, 22));
-        labelResultadoArea.setForeground(EXITO);
+        labelAreaExacta = crearValor(PRIMARIO_HOVER);
+        labelAreaReal = crearValor(EXITO);
 
         tarjeta.add(crearResultado("INTEGRAL INDEFINIDA", textoIntegral));
-        tarjeta.add(Box.createVerticalStrut(12));
-        tarjeta.add(crearResultado("ÁREA BAJO LA CURVA", labelResultadoArea));
-
-        contenedor.add(tarjeta, BorderLayout.CENTER);
+        tarjeta.add(Box.createVerticalStrut(10));
+        tarjeta.add(crearResultado("INTEGRAL DEFINIDA  F(b) − F(a)", labelAreaExacta));
+        tarjeta.add(Box.createVerticalStrut(10));
+        tarjeta.add(crearResultado("ÁREA REAL  ∫ |f(x)| dx", labelAreaReal));
+        tarjeta.add(Box.createVerticalGlue());
 
         // --- Acciones ---
         btnCalcular.addActionListener(e -> calcular());
@@ -163,7 +192,54 @@ public class InterfazGrafica extends JFrame {
         inputLimInf.addActionListener(e -> calcular());
         inputLimSup.addActionListener(e -> calcular());
 
-        return contenedor;
+        return tarjeta;
+    }
+
+    // Columna derecha: gráfica arriba y procedimiento abajo
+    private JPanel crearColumnaDerecha() {
+        JPanel columna = new JPanel(new BorderLayout(0, 16));
+        columna.setOpaque(false);
+
+        grafica = new PanelGrafica(FUENTE);
+        PanelRedondeado tarjetaGrafica = crearTarjetaConTitulo("Gráfica de f(x)", grafica);
+
+        JLabel leyenda = new JLabel("<html><font color='#6366f1'>■</font> área positiva &nbsp;&nbsp;"
+                + "<font color='#f43f5e'>■</font> área negativa &nbsp;&nbsp; (pasa el mouse sobre la curva)</html>");
+        leyenda.setFont(new Font(FUENTE, Font.PLAIN, 12));
+        leyenda.setForeground(TEXTO_SUAVE);
+        tarjetaGrafica.add(leyenda, BorderLayout.SOUTH);
+
+        textoPasos = new JTextArea("Aquí aparecen las reglas que usó Prolog para resolver la integral.");
+        textoPasos.setEditable(false);
+        textoPasos.setLineWrap(true);
+        textoPasos.setWrapStyleWord(true);
+        textoPasos.setForeground(TEXTO);
+        textoPasos.setBackground(RESULTADO_BG);
+        textoPasos.setFont(new Font(FUENTE, Font.PLAIN, 14));
+        textoPasos.setBorder(new EmptyBorder(10, 12, 10, 12));
+
+        JScrollPane scroll = new JScrollPane(textoPasos);
+        scroll.setBorder(BorderFactory.createLineBorder(BORDE));
+        PanelRedondeado tarjetaPasos = crearTarjetaConTitulo("¿Cómo lo resolvió Prolog?", scroll);
+        tarjetaPasos.setPreferredSize(new Dimension(100, 220));
+
+        columna.add(tarjetaGrafica, BorderLayout.CENTER);
+        columna.add(tarjetaPasos, BorderLayout.SOUTH);
+        return columna;
+    }
+
+    private PanelRedondeado crearTarjetaConTitulo(String titulo, JComponent contenido) {
+        PanelRedondeado tarjeta = new PanelRedondeado(20, TARJETA, BORDE);
+        tarjeta.setLayout(new BorderLayout(0, 10));
+        tarjeta.setBorder(new EmptyBorder(16, 20, 16, 20));
+
+        JLabel lbl = new JLabel(titulo);
+        lbl.setFont(new Font(FUENTE, Font.BOLD, 15));
+        lbl.setForeground(TEXTO);
+
+        tarjeta.add(lbl, BorderLayout.NORTH);
+        tarjeta.add(contenido, BorderLayout.CENTER);
+        return tarjeta;
     }
 
     private JPanel crearCampo(String etiqueta, CampoTexto campo) {
@@ -183,35 +259,45 @@ public class InterfazGrafica extends JFrame {
     }
 
     private JPanel crearEjemplos() {
-        JPanel fila = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
-        fila.setOpaque(false);
-
-        JLabel lbl = new JLabel("Ejemplos:");
+        JLabel lbl = new JLabel("Ejemplos (clic para probar):");
         lbl.setFont(new Font(FUENTE, Font.PLAIN, 12));
         lbl.setForeground(TEXTO_SUAVE);
-        fila.add(lbl);
 
-        for (String ejemplo : new String[]{"x^2", "5*x", "sin(x)", "cos(x)"}) {
+        JPanel chips = new JPanel(new GridLayout(2, 4, 6, 6));
+        chips.setOpaque(false);
+        for (String ejemplo : EJEMPLOS) {
             BotonRedondeado chip = new BotonRedondeado(ejemplo, CHIP_BG, CHIP_HOVER, PRIMARIO_HOVER, 14);
             chip.setFont(new Font(FUENTE_MONO, Font.PLAIN, 12));
-            chip.setPreferredSize(new Dimension(Math.max(58, ejemplo.length() * 10 + 24), 28));
+            chip.setPreferredSize(new Dimension(80, 28));
             chip.addActionListener(e -> {
                 inputExpresion.setText(ejemplo);
-                inputExpresion.requestFocusInWindow();
+                if (inputLimInf.getText().isBlank()) inputLimInf.setText("0");
+                if (inputLimSup.getText().isBlank()) inputLimSup.setText("2");
+                calcular();
             });
-            fila.add(chip);
+            chips.add(chip);
         }
-        fila.setAlignmentX(Component.LEFT_ALIGNMENT);
-        fila.setMaximumSize(new Dimension(Integer.MAX_VALUE, 32));
-        // Alinear con el borde izquierdo de los campos
-        fila.setBorder(new EmptyBorder(0, -8, 0, 0));
-        return fila;
+
+        JPanel panel = new JPanel(new BorderLayout(0, 6));
+        panel.setOpaque(false);
+        panel.add(lbl, BorderLayout.NORTH);
+        panel.add(chips, BorderLayout.CENTER);
+        panel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        panel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 90));
+        return panel;
+    }
+
+    private JLabel crearValor(Color color) {
+        JLabel label = new JLabel("—");
+        label.setFont(new Font(FUENTE, Font.BOLD, 22));
+        label.setForeground(color);
+        return label;
     }
 
     private JPanel crearResultado(String titulo, JComponent valor) {
         PanelRedondeado panel = new PanelRedondeado(14, RESULTADO_BG, BORDE);
         panel.setLayout(new BorderLayout(0, 6));
-        panel.setBorder(new EmptyBorder(14, 18, 14, 18));
+        panel.setBorder(new EmptyBorder(12, 18, 12, 18));
 
         JLabel lbl = new JLabel(titulo);
         lbl.setFont(new Font(FUENTE, Font.BOLD, 11));
@@ -227,25 +313,53 @@ public class InterfazGrafica extends JFrame {
     // ================== LÓGICA ==================
 
     private void calcular() {
-        try {
-            String expr = inputExpresion.getText().trim();
-            if (expr.isEmpty()) {
-                JOptionPane.showMessageDialog(this, "Por favor, ingrese una expresión.",
-                        "Error de Entrada", JOptionPane.ERROR_MESSAGE);
-                return;
-            }
-            double limInf = Double.parseDouble(inputLimInf.getText().trim());
-            double limSup = Double.parseDouble(inputLimSup.getText().trim());
-
-            String[] resultados = motorProlog.resolverIntegralYArea(expr, limInf, limSup);
-
-            textoIntegral.setText("F(x) = " + resultados[0]);
-            labelResultadoArea.setText(resultados[1] + " u²");
-
-        } catch (NumberFormatException ex) {
-            JOptionPane.showMessageDialog(this, "Por favor, ingrese números válidos en los límites.",
-                    "Error de Entrada", JOptionPane.ERROR_MESSAGE);
+        String expr = normalizar(inputExpresion.getText());
+        if (expr.isEmpty()) {
+            error("Por favor, ingrese una expresión.");
+            return;
         }
+
+        Double a = leerLimite(inputLimInf.getText());
+        Double b = leerLimite(inputLimSup.getText());
+        if (a == null || b == null) {
+            error("Por favor, ingrese números válidos en los límites (ej. 0, 2.5, pi, pi/2).");
+            return;
+        }
+
+        MotorProlog.Resultado r;
+        try {
+            r = motorProlog.resolver(expr, a, b);
+        } catch (IllegalArgumentException ex) {
+            error(ex.getMessage() + "\nRecuerda usar * para multiplicar, ej. 3*x^2.");
+            return;
+        }
+
+        if (r == null) {
+            textoIntegral.setText("No soportada");
+            textoIntegral.setForeground(ROJO);
+            labelAreaExacta.setText("—");
+            labelAreaReal.setText("—");
+            textoPasos.setText("El sistema no tiene una regla para integrar \"" + expr + "\".\n\n"
+                    + "Reglas que conoce: constantes, x^n, suma y resta, constante por función,\n"
+                    + "sin, cos, tan, exp, e^x, k^x, 1/x, sqrt(x), ln(x), sinh, cosh y 1/(1+x^2).\n"
+                    + "(También funcionan con argumento a*x, por ejemplo sin(3*x).)");
+            grafica.limpiar();
+            return;
+        }
+
+        textoIntegral.setForeground(TEXTO);
+        textoIntegral.setText("F(x) = " + bonito(r.integral()) + " + C");
+        labelAreaExacta.setText(conUnidades(r.areaExacta()));
+        labelAreaReal.setText(conUnidades(r.areaReal()));
+        textoPasos.setText(numerarPasos(bonito(r.pasos())));
+        textoPasos.setCaretPosition(0);
+
+        // la grafica se ve un poco mas alla de los limites
+        double ancho = Math.abs(b - a) == 0 ? 1 : Math.abs(b - a);
+        double desde = Math.min(a, b) - ancho * 0.25;
+        double hasta = Math.max(a, b) + ancho * 0.25;
+        int n = 400;
+        grafica.mostrar(motorProlog.puntos(expr, desde, hasta, n), desde, hasta, a, b);
     }
 
     private void limpiar() {
@@ -253,8 +367,71 @@ public class InterfazGrafica extends JFrame {
         inputLimInf.setText("");
         inputLimSup.setText("");
         textoIntegral.setText("—");
-        labelResultadoArea.setText("—");
+        textoIntegral.setForeground(TEXTO);
+        labelAreaExacta.setText("—");
+        labelAreaReal.setText("—");
+        textoPasos.setText("Aquí aparecen las reglas que usó Prolog para resolver la integral.");
+        grafica.limpiar();
         inputExpresion.requestFocusInWindow();
+    }
+
+    private void error(String mensaje) {
+        JOptionPane.showMessageDialog(this, mensaje, "Error de Entrada", JOptionPane.ERROR_MESSAGE);
+    }
+
+    // Arregla cosas comunes al escribir: "sen" en vez de "sin", "3x" en vez
+    // de "3*x", mayúsculas, log en vez de ln...
+    private static String normalizar(String texto) {
+        return texto.trim()
+                .toLowerCase()
+                .replace("sen(", "sin(")
+                .replace("log(", "ln(")
+                .replace("π", "pi")
+                .replaceAll("(\\d)\\s*([a-z(])", "$1*$2");
+    }
+
+    private Double leerLimite(String texto) {
+        String t = texto.trim().toLowerCase().replace(',', '.').replace("π", "pi");
+        if (t.isEmpty()) return null;
+        try {
+            return Double.parseDouble(t);
+        } catch (NumberFormatException e) {
+            return motorProlog.evaluarNumero(t);   // "pi", "pi/2", "2*e"...
+        }
+    }
+
+    private static String conUnidades(String valor) {
+        return valor.startsWith("no") ? valor : valor + " u²";
+    }
+
+    private static String numerarPasos(String pasos) {
+        String[] lineas = pasos.split("\n");
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < lineas.length; i++) {
+            boolean ultima = i == lineas.length - 1;
+            sb.append(ultima ? "→  " : (i + 1) + ".  ").append(lineas[i]).append("\n");
+        }
+        return sb.toString().trim();
+    }
+
+    // Hace que la salida de Prolog se vea más como en el cuaderno
+    private static String bonito(String s) {
+        s = s.replace("*", "·")
+             .replaceAll("(?<=[\\w)])([+-])(?=[\\w(])", " $1 ")   // x^3+x^2 -> x^3 + x^2
+             .replaceAll("abs\\(([^()]*)\\)", "|$1|");
+
+        // exponentes enteros como superindice: x^4 -> x⁴ (x^1.5 se queda igual)
+        Matcher m = Pattern.compile("\\^(\\d+)(?![\\d.])").matcher(s);
+        StringBuilder sb = new StringBuilder();
+        while (m.find()) {
+            StringBuilder sup = new StringBuilder();
+            for (char c : m.group(1).toCharArray()) {
+                sup.append("⁰¹²³⁴⁵⁶⁷⁸⁹".charAt(c - '0'));
+            }
+            m.appendReplacement(sb, sup.toString());
+        }
+        m.appendTail(sb);
+        return sb.toString();
     }
 
     private static String elegirFuente(String... candidatas) {
