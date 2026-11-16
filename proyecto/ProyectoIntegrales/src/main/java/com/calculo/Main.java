@@ -1,4 +1,3 @@
-// src/main/java/com/calculo/Main.java
 package com.calculo;
 
 import javax.swing.JOptionPane;
@@ -11,7 +10,6 @@ public class Main {
                 InterfazGrafica app = new InterfazGrafica();
                 app.setVisible(true);
             } catch (Throwable e) {
-                // Lo mas comun: SWI-Prolog no esta instalado o no esta en el PATH
                 e.printStackTrace();
                 JOptionPane.showMessageDialog(null,
                         "No se pudo iniciar Prolog.\n\n"

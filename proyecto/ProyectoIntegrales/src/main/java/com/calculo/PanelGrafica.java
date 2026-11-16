@@ -1,4 +1,3 @@
-// src/main/java/com/calculo/PanelGrafica.java
 package com.calculo;
 
 import javax.swing.*;
@@ -8,11 +7,6 @@ import java.awt.event.MouseEvent;
 import java.awt.geom.Path2D;
 import java.util.Arrays;
 
-/**
- * Dibuja f(x) y sombrea el area entre a y b.
- * Arriba del eje x el area va en morado y abajo en rojo, para que se
- * vea por que la integral definida puede dar negativa o cero.
- */
 public class PanelGrafica extends JPanel {
 
     private static final Color EJES      = new Color(148, 163, 184);
@@ -24,15 +18,15 @@ public class PanelGrafica extends JPanel {
 
     private static final int MARGEN = 36;
 
-    private double[] ys;              // valores de f(x)
-    private double xMin, xMax;        // rango del eje x
-    private double yMin, yMax;        // rango del eje y
-    private double a, b;              // limites de integracion
+    private double[] ys;
+    private double xMin, xMax;
+    private double yMin, yMax;
+    private double a, b;
     private String fuente;
 
-    private double progreso = 1;      // para la animacion del sombreado (0..1)
+    private double progreso = 1;
     private Timer animacion;
-    private int indiceMouse = -1;     // punto donde esta el mouse
+    private int indiceMouse = -1;
 
     public PanelGrafica(String fuente) {
         this.fuente = fuente;
@@ -58,7 +52,6 @@ public class PanelGrafica extends JPanel {
         addMouseListener(mouse);
     }
 
-    /** Recibe los puntos ya calculados por Prolog y arranca la animacion. */
     public void mostrar(double[] ys, double xMin, double xMax, double a, double b) {
         this.ys = ys;
         this.xMin = xMin;
@@ -85,8 +78,6 @@ public class PanelGrafica extends JPanel {
         repaint();
     }
 
-    // El rango en y se saca ignorando los valores mas extremos (2% de cada
-    // lado). Si no, funciones como 1/x cerca de 0 aplastan toda la grafica.
     private void calcularRangoY() {
         double[] validos = Arrays.stream(ys).filter(Double::isFinite).sorted().toArray();
         if (validos.length == 0) {
@@ -161,7 +152,6 @@ public class PanelGrafica extends JPanel {
             g2.drawString(ty, MARGEN - 6 - g2.getFontMetrics().stringWidth(ty), py(y) + 4);
         }
 
-        // ejes x e y (solo si se ven en pantalla)
         g2.setColor(EJES);
         g2.setStroke(new BasicStroke(1.4f));
         g2.drawLine(MARGEN, py(0), getWidth() - MARGEN, py(0));
@@ -171,7 +161,7 @@ public class PanelGrafica extends JPanel {
     }
 
     private void dibujarArea(Graphics2D g2) {
-        double limite = a + (b - a) * progreso;   // hasta donde va la animacion
+        double limite = a + (b - a) * progreso;   
         int cero = py(0);
 
         for (int i = 0; i < ys.length - 1; i++) {
@@ -194,8 +184,6 @@ public class PanelGrafica extends JPanel {
 
         for (int i = 0; i < ys.length; i++) {
             double y = ys[i];
-            // se "levanta el lapiz" si no existe el punto o si hay un salto
-            // muy grande (asintotas como en 1/x o tan(x))
             boolean salto = i > 0 && Double.isFinite(ys[i - 1]) && Math.abs(y - ys[i - 1]) > rango * 2;
             if (!Double.isFinite(y) || salto) {
                 levantado = true;
@@ -252,13 +240,12 @@ public class PanelGrafica extends JPanel {
         g2.drawString(texto, tx + 8, ty + 16);
     }
 
-    // evita coordenadas gigantes cuando la funcion se dispara
     private int limitar(int y) {
         return Math.max(-2000, Math.min(getHeight() + 2000, y));
     }
 
     private static String formato(double v) {
-        if (Math.abs(v) < 1e-6) return "0";   // evita cosas como 7e-09
+        if (Math.abs(v) < 1e-6) return "0";   
         if (Math.abs(v) >= 1000 || Math.abs(v) < 0.01) return String.format("%.1e", v);
         return String.format("%.2f", v).replaceAll("0+$", "").replaceAll("[.,]$", "");
     }

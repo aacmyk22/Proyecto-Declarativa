@@ -1,4 +1,3 @@
-// src/main/java/com/calculo/InterfazGrafica.java
 package com.calculo;
 
 import javax.swing.*;
@@ -16,7 +15,6 @@ import java.util.regex.Pattern;
 
 public class InterfazGrafica extends JFrame {
 
-    // ====== Paleta de colores ======
     private static final Color FONDO          = new Color(241, 245, 249);
     private static final Color TARJETA        = Color.WHITE;
     private static final Color BORDE          = new Color(226, 232, 240);
@@ -33,7 +31,7 @@ public class InterfazGrafica extends JFrame {
     private static final Color EXITO          = new Color(5, 150, 105);
     private static final Color ROJO           = new Color(225, 29, 72);
 
-    // ====== Fuentes (con alternativas según el sistema operativo) ======
+
     private static final String FUENTE      = elegirFuente("SF Pro Text", "Helvetica Neue", "Segoe UI", "Inter", "SansSerif");
     private static final String FUENTE_MONO = elegirFuente("JetBrains Mono", "Menlo", "Consolas", "Monospaced");
 
@@ -69,8 +67,6 @@ public class InterfazGrafica extends JFrame {
         }
     }
 
-    // ================== CONSTRUCCIÓN DE LA INTERFAZ ==================
-
     private JPanel crearEncabezado() {
         JPanel header = new JPanel(new BorderLayout()) {
             @Override
@@ -101,12 +97,7 @@ public class InterfazGrafica extends JFrame {
         textos.add(Box.createVerticalStrut(6));
         textos.add(subtitulo);
 
-        JLabel etiqueta = new JLabel("Sistema experto · Java + SWI-Prolog");
-        etiqueta.setForeground(Color.WHITE);
-        etiqueta.setFont(new Font(FUENTE, Font.BOLD, 12));
-
         header.add(textos, BorderLayout.CENTER);
-        header.add(etiqueta, BorderLayout.EAST);
         return header;
     }
 
@@ -120,21 +111,18 @@ public class InterfazGrafica extends JFrame {
         return contenedor;
     }
 
-    // Columna izquierda: datos de entrada y resultados
     private JPanel crearTarjetaDatos() {
         PanelRedondeado tarjeta = new PanelRedondeado(20, TARJETA, BORDE);
         tarjeta.setLayout(new BoxLayout(tarjeta, BoxLayout.Y_AXIS));
         tarjeta.setBorder(new EmptyBorder(22, 24, 22, 24));
         tarjeta.setPreferredSize(new Dimension(420, 100));
 
-        // --- Expresión ---
         inputExpresion = new CampoTexto("Ej. x^2, 3*x + 1, sin(x)");
         tarjeta.add(crearCampo("Función f(x)", inputExpresion));
         tarjeta.add(Box.createVerticalStrut(10));
         tarjeta.add(crearEjemplos());
         tarjeta.add(Box.createVerticalStrut(16));
 
-        // --- Límites ---
         inputLimInf = new CampoTexto("0");
         inputLimSup = new CampoTexto("1");
         JPanel limites = new JPanel(new GridLayout(1, 2, 14, 0));
@@ -147,7 +135,6 @@ public class InterfazGrafica extends JFrame {
         tarjeta.add(limites);
         tarjeta.add(Box.createVerticalStrut(18));
 
-        // --- Botones ---
         BotonRedondeado btnCalcular = new BotonRedondeado("Calcular área", PRIMARIO, PRIMARIO_HOVER, Color.WHITE, 12);
         btnCalcular.setFont(new Font(FUENTE, Font.BOLD, 15));
         btnCalcular.setPreferredSize(new Dimension(100, 46));
@@ -165,7 +152,6 @@ public class InterfazGrafica extends JFrame {
         tarjeta.add(botones);
         tarjeta.add(Box.createVerticalStrut(20));
 
-        // --- Resultados ---
         textoIntegral = new JTextArea("—");
         textoIntegral.setEditable(false);
         textoIntegral.setOpaque(false);
@@ -185,7 +171,6 @@ public class InterfazGrafica extends JFrame {
         tarjeta.add(crearResultado("ÁREA REAL  ∫ |f(x)| dx", labelAreaReal));
         tarjeta.add(Box.createVerticalGlue());
 
-        // --- Acciones ---
         btnCalcular.addActionListener(e -> calcular());
         btnLimpiar.addActionListener(e -> limpiar());
         inputExpresion.addActionListener(e -> calcular());
@@ -195,7 +180,6 @@ public class InterfazGrafica extends JFrame {
         return tarjeta;
     }
 
-    // Columna derecha: gráfica arriba y procedimiento abajo
     private JPanel crearColumnaDerecha() {
         JPanel columna = new JPanel(new BorderLayout(0, 16));
         columna.setOpaque(false);
@@ -310,8 +294,6 @@ public class InterfazGrafica extends JFrame {
         return panel;
     }
 
-    // ================== LÓGICA ==================
-
     private void calcular() {
         String expr = normalizar(inputExpresion.getText());
         if (expr.isEmpty()) {
@@ -354,7 +336,6 @@ public class InterfazGrafica extends JFrame {
         textoPasos.setText(numerarPasos(bonito(r.pasos())));
         textoPasos.setCaretPosition(0);
 
-        // la grafica se ve un poco mas alla de los limites
         double ancho = Math.abs(b - a) == 0 ? 1 : Math.abs(b - a);
         double desde = Math.min(a, b) - ancho * 0.25;
         double hasta = Math.max(a, b) + ancho * 0.25;
@@ -379,8 +360,6 @@ public class InterfazGrafica extends JFrame {
         JOptionPane.showMessageDialog(this, mensaje, "Error de Entrada", JOptionPane.ERROR_MESSAGE);
     }
 
-    // Arregla cosas comunes al escribir: "sen" en vez de "sin", "3x" en vez
-    // de "3*x", mayúsculas, log en vez de ln...
     private static String normalizar(String texto) {
         return texto.trim()
                 .toLowerCase()
@@ -396,7 +375,7 @@ public class InterfazGrafica extends JFrame {
         try {
             return Double.parseDouble(t);
         } catch (NumberFormatException e) {
-            return motorProlog.evaluarNumero(t);   // "pi", "pi/2", "2*e"...
+            return motorProlog.evaluarNumero(t);
         }
     }
 
@@ -414,13 +393,11 @@ public class InterfazGrafica extends JFrame {
         return sb.toString().trim();
     }
 
-    // Hace que la salida de Prolog se vea más como en el cuaderno
     private static String bonito(String s) {
         s = s.replace("*", "·")
-             .replaceAll("(?<=[\\w)])([+-])(?=[\\w(])", " $1 ")   // x^3+x^2 -> x^3 + x^2
+             .replaceAll("(?<=[\\w)])([+-])(?=[\\w(])", " $1 ")
              .replaceAll("abs\\(([^()]*)\\)", "|$1|");
 
-        // exponentes enteros como superindice: x^4 -> x⁴ (x^1.5 se queda igual)
         Matcher m = Pattern.compile("\\^(\\d+)(?![\\d.])").matcher(s);
         StringBuilder sb = new StringBuilder();
         while (m.find()) {
@@ -445,9 +422,6 @@ public class InterfazGrafica extends JFrame {
         return candidatas[candidatas.length - 1];
     }
 
-    // ================== COMPONENTES PERSONALIZADOS ==================
-
-    /** Panel con esquinas redondeadas y borde fino. */
     private static class PanelRedondeado extends JPanel {
         private final int arco;
         private final Color fondo, borde;
@@ -472,7 +446,6 @@ public class InterfazGrafica extends JFrame {
         }
     }
 
-    /** Botón plano con esquinas redondeadas y efecto hover. */
     private static class BotonRedondeado extends JButton {
         private final Color normal, hover, textoColor;
         private final int arco;
@@ -515,7 +488,6 @@ public class InterfazGrafica extends JFrame {
         }
     }
 
-    /** Campo de texto redondeado con placeholder y resaltado al enfocar. */
     private static class CampoTexto extends JTextField {
         private final String placeholder;
         private boolean enfocado = false;
